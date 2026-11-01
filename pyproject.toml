@@ -1,0 +1,101 @@
+[project]
+name = "drex-spark"
+dynamic = ["version", "readme"]
+description = "Drex for Apache Spark: typed questions about your rows, from PySpark and SQL"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Nace AI", email = "engineering@nace.ai" }]
+requires-python = ">=3.10"
+keywords = ["drex", "nace", "spark", "pyspark", "databricks", "classification"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Database",
+]
+# pyspark is not a dependency: Databricks, EMR, Dataproc and Fabric provide their own, and the Unity Catalog functions
+# don't import it. pandas and pyarrow are what Spark's pandas UDFs run on.
+dependencies = [
+    "nace-sdk>=0.6.2,<0.7",
+    "pandas>=1.5",
+    "pyarrow>=11",
+]
+
+[project.optional-dependencies]
+spark = ["pyspark>=3.5"]
+
+[project.urls]
+Homepage = "https://console.nace.ai/docs/integrations/spark"
+Source = "https://github.com/nace-ai/drex-spark"
+Issues = "https://github.com/nace-ai/drex-spark/issues"
+
+[dependency-groups]
+dev = [
+    "jsonschema>=4.23",
+    "mypy>=1.13",
+    # PySpark doesn't support pandas 3 yet
+    "pandas>=1.5,<3",
+    "pyspark>=3.5",
+    "pytest>=8.3",
+    "respx>=0.22",
+    "ruff>=0.8",
+]
+
+[build-system]
+requires = ["hatchling>=1.27", "hatch-fancy-pypi-readme>=24"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "src/drex_spark/_version.py"
+
+# PyPI shows the README without the repository, so its relative paths become GitHub URLs: images from the raw files,
+# links to the pages. tests/test_readme.py checks that every path is rewritten and exists
+[tool.hatch.metadata.hooks.fancy-pypi-readme]
+content-type = "text/markdown"
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.fragments]]
+path = "README.md"
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
+pattern = '(src|srcset)="(?!https?://|#)([^"]+)"'
+replacement = '\1="https://raw.githubusercontent.com/nace-ai/drex-spark/main/\2"'
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
+pattern = '(href="|\]\()(?!https?://|#|mailto:)([^")]+)'
+replacement = '\1https://github.com/nace-ai/drex-spark/blob/main/\2'
+
+[tool.hatch.build.targets.sdist]
+include = ["src", "tests", "README.md", "LICENSE", "docs/API.md"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+markers = [
+    "spark: needs a local SparkSession (Java 17)",
+    "live: calls the Drex API at NACE_BASE_URL with NACE_API_KEY; billed",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+extend-exclude = ["tests/mock"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "BLE", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+# Error messages are matched as patterns on purpose
+"tests/*" = ["RUF043"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+ignore_missing_imports = true
+# PySpark's pandas_udf and the Column it returns are untyped
+disallow_untyped_decorators = false
+warn_return_any = false
+exclude = ["tests/"]

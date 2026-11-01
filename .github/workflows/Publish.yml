@@ -1,0 +1,30 @@
+#
+# Publishes to PyPI with trusted publishing when a GitHub release is published from a vX.Y.Z tag. Pushing the tag alone
+# publishes nothing. The pypi environment and PyPI's trusted publisher for this repository and workflow are set up
+# outside this repository.
+#
+name: Publish
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    name: Build and publish to PyPI
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Check the tag against the version
+        run: |
+          version="$(uv run --no-project python -c 'import runpy; print(runpy.run_path("src/drex_spark/_version.py")["__version__"])')"
+          if [ "${GITHUB_REF_NAME}" != "v${version}" ]; then
+            echo "::error::The release tag ${GITHUB_REF_NAME} does not match the package version ${version}"
+            exit 1
+          fi
+      - run: uv build
+      - uses: pypa/gh-action-pypi-publish@release/v1
