@@ -41,17 +41,16 @@ and SQL functions. The [Databricks SQL](#databricks-sql) interface uses separate
 ## Getting started
 
 Requires Python 3.10+ and Spark 3.5+. For the local setup below, use Python 3.12 and Java 17, as in the tests.
-`drex-spark` is not on PyPI yet, so install release `v0.1.0` from GitHub:
 
 ```sh
 python3.12 -m venv .venv
 . .venv/bin/activate
-python -m pip install 'drex-spark @ git+https://github.com/nace-ai/drex-spark@v0.1.0' 'pyspark==4.2.1' 'pandas<3'
+python -m pip install drex-spark 'pyspark==4.2.1' 'pandas<3'
 ```
 
-On a managed cluster, install the wheel on the driver and executors and use the platform's PySpark. Build it with
-`python -m pip wheel --no-deps -w dist 'drex-spark @ git+https://github.com/nace-ai/drex-spark@v0.1.0'`; see
-[Databricks SQL](#databricks-sql) for installing it on a warehouse.
+On a managed cluster, install `drex-spark` on the driver and executors and use the platform's PySpark: on Databricks,
+`%pip install drex-spark` in a notebook, or a PyPI library on the cluster or job. See
+[Databricks SQL](#databricks-sql) for SQL warehouses.
 
 ### The key
 
@@ -131,16 +130,13 @@ them once, as the principal they should run as:
 3. **The functions:**
 
    ```sh
-   python -m pip wheel --no-deps -w dist 'drex-spark @ git+https://github.com/nace-ai/drex-spark@v0.1.0'
-   # Upload dist/drex_spark-0.1.0-py3-none-any.whl to a Unity Catalog volume first.
-   python -m drex_spark.databricks --catalog main --schema drex \
-     --secret main.drex.nace_api_key \
-     --dependency /Volumes/main/drex/wheels/drex_spark-0.1.0-py3-none-any.whl > drex.sql
+   python -m pip install drex-spark
+   python -m drex_spark.databricks --catalog main --schema drex --secret main.drex.nace_api_key > drex.sql
    ```
 
-   Use an existing catalog, schema and volume that your function owner can access; adjust their names and the wheel
-   filename to match your upload. Run `drex.sql` in the SQL editor. `--dependency` is required until the package is
-   published: the generator otherwise defaults to a PyPI dependency. It uses `environment_version` 6.
+   Use an existing catalog and schema that your function owner can access. Run `drex.sql` in the SQL editor. Each
+   function installs the same version of `drex-spark` from PyPI into its own environment (`environment_version` 6); to
+   install a wheel from a Unity Catalog volume instead, add `--dependency /Volumes/<catalog>/<schema>/<volume>/<wheel>`.
 
 ```sql
 SELECT id,

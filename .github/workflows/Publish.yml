@@ -1,30 +1,75 @@
 #
 # Publishes to PyPI with trusted publishing when a GitHub release is published from a vX.Y.Z tag. Pushing the tag alone
-# publishes nothing. The pypi environment and PyPI's trusted publisher for this repository and workflow are set up
-# outside this repository.
+# publishes nothing. A PyPI upload can't be undone or replaced, so everything that can be checked runs before it, in a
+# job that holds no publishing credential; workflow_dispatch runs those checks and the build without publishing, to
+# rehearse a release. The pypi environment and PyPI's trusted publisher for this repository, this workflow and that
+# environment are set up outside this repository.
 #
 name: Publish
 on:
   release:
     types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # Never cancel: a half-finished release is worse than a queued one
+  cancel-in-progress: false
 
 jobs:
-  publish:
-    name: Build and publish to PyPI
+  verify:
+    name: Verify and build
     runs-on: ubuntu-latest
-    environment: pypi
-    permissions:
-      id-token: write
-      contents: read
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
       - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.12'
+      - run: uv sync --locked
+      # The tag names the version people get, so a tag that disagrees with the package fails here, not after an upload
       - name: Check the tag against the version
+        if: github.event_name == 'release'
         run: |
-          version="$(uv run --no-project python -c 'import runpy; print(runpy.run_path("src/drex_spark/_version.py")["__version__"])')"
+          version="$(uv run --no-sync python -c 'import runpy; print(runpy.run_path("src/drex_spark/_version.py")["__version__"])')"
           if [ "${GITHUB_REF_NAME}" != "v${version}" ]; then
             echo "::error::The release tag ${GITHUB_REF_NAME} does not match the package version ${version}"
             exit 1
           fi
+      - run: uv run --no-sync ruff check src tests
+      - run: uv run --no-sync mypy src
+      - run: uv run --no-sync pytest -q
       - run: uv build
-      - uses: pypa/gh-action-pypi-publish@release/v1
+      # The README becomes the PyPI project page; twine refuses markup PyPI can't render, which would otherwise show
+      # only at upload
+      - run: uvx twine check --strict dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  publish:
+    name: Publish to PyPI
+    needs: verify
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    # Half of the trusted publishing identity, and where release reviewers are added
+    environment: pypi
+    permissions:
+      # Trusted publishing mints a short-lived PyPI token from this; no PyPI credential is stored here
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      # Pinned to a commit, since anything running in this job can mint the token for drex-spark: v1.14.2, the release
+      # nace-sdk's publishing pins too
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
