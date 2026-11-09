@@ -18,6 +18,8 @@ or from Databricks SQL. `drex-spark` sends each row to
 The PySpark interface uses pandas UDFs. A separate generator installs Unity Catalog SQL functions for
 Databricks SQL warehouses. CI tests Python 3.10 with Spark 3.5, and Python 3.12 and 3.13 with Spark 4.
 
+**Also from Drex:** [Drex Browser Use](https://github.com/nace-ai/drex-browser-harness-pub), an AI browser agent and MCP server. One sentence fills a DoorDash cart in 16 moves.
+
 [Getting started](#getting-started) · [Databricks SQL](#databricks-sql) · [API reference](docs/API.md) ·
 [Requests and cost](#requests-and-cost) · [Development](#development)
 
